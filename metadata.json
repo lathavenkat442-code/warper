@@ -1,6 +1,6 @@
 {
-  "name": "Warper",
-  "description": "An easy-to-use Tamil accounting and inventory management  with photo-based stock tracking and income/expense monitoring,billing \nUsing with all systems like laptops, computers, mobile tablet compatible ",
+  "name": "Viyabaari App",
+  "description": "A business management app with OCR scanning and statement tracking.",
   "requestFramePermissions": [
     "camera"
   ]

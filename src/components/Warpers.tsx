@@ -147,18 +147,22 @@ const Warpers: React.FC<WarpersProps> = ({ user, language, buttonColor = 'bg-zin
         for (const col of collections) {
           const localData = localStorage.getItem(`viyabaari_${col.localKey}_guest`);
           if (localData) {
-            const parsed = JSON.parse(localData);
-            if (parsed.length > 0) {
-              // Check if Firestore already has data for this user
-              // We'll rely on the onSnapshot to tell us if it's empty, 
-              // but for migration we can just try to upload if we haven't migrated yet
-              const migratedKey = `viyabaari_migrated_${col.name}_${user.uid}`;
-              if (!localStorage.getItem(migratedKey)) {
-                for (const item of parsed) {
-                  await saveToFirestore(col.name, item);
+            try {
+              const parsed = JSON.parse(localData);
+              if (parsed && Array.isArray(parsed) && parsed.length > 0) {
+                // Check if Firestore already has data for this user
+                // We'll rely on the onSnapshot to tell us if it's empty, 
+                // but for migration we can just try to upload if we haven't migrated yet
+                const migratedKey = `viyabaari_migrated_${col.name}_${user.uid}`;
+                if (!localStorage.getItem(migratedKey)) {
+                  for (const item of parsed) {
+                    await saveToFirestore(col.name, item);
+                  }
+                  localStorage.setItem(migratedKey, 'true');
                 }
-                localStorage.setItem(migratedKey, 'true');
               }
+            } catch (e) {
+              console.error('Error parsing local data for migration:', e);
             }
           }
         }
@@ -193,36 +197,40 @@ const Warpers: React.FC<WarpersProps> = ({ user, language, buttonColor = 'bg-zin
     } else {
       // Local storage for guests
       setTimeout(() => {
-        const savedWarpers = localStorage.getItem(`viyabaari_warpers_${user.uid || 'guest'}`);
-        if (savedWarpers) setWarpers(JSON.parse(savedWarpers));
+        try {
+          const savedWarpers = localStorage.getItem(`viyabaari_warpers_${user.uid || 'guest'}`);
+          if (savedWarpers) setWarpers(JSON.parse(savedWarpers) || []);
 
-        const savedDispatches = localStorage.getItem(`viyabaari_yarn_dispatches_${user.uid || 'guest'}`);
-        if (savedDispatches) setDispatches(JSON.parse(savedDispatches));
+          const savedDispatches = localStorage.getItem(`viyabaari_yarn_dispatches_${user.uid || 'guest'}`);
+          if (savedDispatches) setDispatches(JSON.parse(savedDispatches) || []);
 
-        const savedReturns = localStorage.getItem(`viyabaari_warper_returns_${user.uid || 'guest'}`);
-        if (savedReturns) setReturns(JSON.parse(savedReturns));
+          const savedReturns = localStorage.getItem(`viyabaari_warper_returns_${user.uid || 'guest'}`);
+          if (savedReturns) setReturns(JSON.parse(savedReturns) || []);
 
-        const savedWarpOrders = localStorage.getItem(`viyabaari_warp_orders_${user.uid || 'guest'}`);
-        if (savedWarpOrders) setWarpOrders(JSON.parse(savedWarpOrders));
+          const savedWarpOrders = localStorage.getItem(`viyabaari_warp_orders_${user.uid || 'guest'}`);
+          if (savedWarpOrders) setWarpOrders(JSON.parse(savedWarpOrders) || []);
 
-        const savedWeavers = localStorage.getItem(`viyabaari_weavers_${user.uid || 'guest'}`);
-        if (savedWeavers) setWeavers(JSON.parse(savedWeavers));
+          const savedWeavers = localStorage.getItem(`viyabaari_weavers_${user.uid || 'guest'}`);
+          if (savedWeavers) setWeavers(JSON.parse(savedWeavers) || []);
 
-        const savedLooms = localStorage.getItem(`viyabaari_looms_${user.uid || 'guest'}`);
-        if (savedLooms) setLooms(JSON.parse(savedLooms));
+          const savedLooms = localStorage.getItem(`viyabaari_looms_${user.uid || 'guest'}`);
+          if (savedLooms) setLooms(JSON.parse(savedLooms) || []);
 
-        const savedSuppliers = localStorage.getItem(`viyabaari_suppliers_${user.uid || 'guest'}`);
-        if (savedSuppliers) setSuppliers(JSON.parse(savedSuppliers));
+          const savedSuppliers = localStorage.getItem(`viyabaari_suppliers_${user.uid || 'guest'}`);
+          if (savedSuppliers) setSuppliers(JSON.parse(savedSuppliers) || []);
 
-        const savedFormulas = localStorage.getItem(`viyabaari_denier_formulas_${user.uid || 'guest'}`);
-        if (savedFormulas) {
-          const parsed = JSON.parse(savedFormulas);
-          setDenierFormulas(parsed);
-          if (parsed.length > 0) setSelectedDenier(parsed[0].denier);
+          const savedFormulas = localStorage.getItem(`viyabaari_denier_formulas_${user.uid || 'guest'}`);
+          if (savedFormulas) {
+            const parsed = JSON.parse(savedFormulas) || [];
+            setDenierFormulas(parsed);
+            if (parsed.length > 0) setSelectedDenier(parsed[0].denier);
+          }
+
+          const savedTxns = localStorage.getItem(`viyabaari_loom_txns_${user.uid || 'guest'}`);
+          if (savedTxns) setLoomTransactions(JSON.parse(savedTxns) || []);
+        } catch (e) {
+          console.error('Error parsing local storage data:', e);
         }
-
-        const savedTxns = localStorage.getItem(`viyabaari_loom_txns_${user.uid || 'guest'}`);
-        if (savedTxns) setLoomTransactions(JSON.parse(savedTxns));
       }, 0);
     }
   }, [user.uid, saveToFirestore, deleteFromFirestore, warpers, dispatches, returns, warpOrders, weavers, looms, suppliers, denierFormulas, loomTransactions, selectedDenier]);
@@ -765,17 +773,21 @@ const Warpers: React.FC<WarpersProps> = ({ user, language, buttonColor = 'bg-zin
       // Update loom_txns if the order was already completed
       const savedTxns = localStorage.getItem(`viyabaari_loom_txns_${user.uid || 'guest'}`);
       if (savedTxns) {
-        const currentTxns: LoomTransaction[] = JSON.parse(savedTxns);
-        const updatedTxns = currentTxns.map(txn => {
-          if (txn.warpOrderId === isAssigningOrder && txn.type === 'warp_loaded') {
-            return {
-              ...txn,
-              loomId: finalLoomId
-            };
-          }
-          return txn;
-        });
-        saveLoomTxns(updatedTxns);
+        try {
+          const currentTxns: LoomTransaction[] = JSON.parse(savedTxns) || [];
+          const updatedTxns = currentTxns.map(txn => {
+            if (txn.warpOrderId === isAssigningOrder && txn.type === 'warp_loaded') {
+              return {
+                ...txn,
+                loomId: finalLoomId
+              };
+            }
+            return txn;
+          });
+          saveLoomTxns(updatedTxns);
+        } catch (e) {
+          console.error('Error parsing loom txns:', e);
+        }
       }
     }
 

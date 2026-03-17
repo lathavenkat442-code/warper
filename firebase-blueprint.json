@@ -1,0 +1,183 @@
+{
+  "entities": {
+    "Weaver": {
+      "title": "Weaver",
+      "description": "A weaver who works on the looms.",
+      "type": "object",
+      "properties": {
+        "uid": { "type": "string" },
+        "name": { "type": "string" },
+        "phone": { "type": "string" },
+        "createdAt": { "type": "integer" }
+      },
+      "required": ["uid", "name", "createdAt"]
+    },
+    "Warper": {
+      "title": "Warper",
+      "description": "A warper who prepares the warp.",
+      "type": "object",
+      "properties": {
+        "uid": { "type": "string" },
+        "name": { "type": "string" },
+        "phone": { "type": "string" },
+        "createdAt": { "type": "integer" }
+      },
+      "required": ["uid", "name", "createdAt"]
+    },
+    "YarnDispatch": {
+      "title": "Yarn Dispatch",
+      "description": "A record of yarn dispatched to a warper or weaver.",
+      "type": "object",
+      "properties": {
+        "uid": { "type": "string" },
+        "date": { "type": "string" },
+        "recipientType": { "type": "string", "enum": ["warper", "weaver"] },
+        "recipientId": { "type": "string" },
+        "yarnCategory": { "type": "string", "enum": ["warp", "weft", "zari", "other"] },
+        "yarnType": { "type": "string" },
+        "color": { "type": "string" },
+        "weightKg": { "type": "number" },
+        "supplierId": { "type": "string" },
+        "supplierName": { "type": "string" },
+        "billNumber": { "type": "string" },
+        "denier": { "type": "string" },
+        "createdAt": { "type": "integer" }
+      },
+      "required": ["uid", "date", "recipientType", "recipientId", "yarnCategory", "yarnType", "color", "weightKg", "createdAt"]
+    },
+    "WarperReturn": {
+      "title": "Warper Return",
+      "description": "A record of warp returned by a warper.",
+      "type": "object",
+      "properties": {
+        "uid": { "type": "string" },
+        "warperId": { "type": "string" },
+        "date": { "type": "string" },
+        "warpNumber": { "type": "string" },
+        "length": { "type": "number" },
+        "weightKg": { "type": "number" },
+        "color": { "type": "string" },
+        "weaverId": { "type": "string" },
+        "weaverName": { "type": "string" },
+        "yarnType": { "type": "string" },
+        "ends": { "type": "integer" },
+        "orderId": { "type": "string" },
+        "createdAt": { "type": "integer" }
+      },
+      "required": ["uid", "warperId", "date", "createdAt"]
+    },
+    "DenierFormula": {
+      "title": "Denier Formula",
+      "description": "A formula for calculating yarn weight based on denier.",
+      "type": "object",
+      "properties": {
+        "uid": { "type": "string" },
+        "denier": { "type": "string" },
+        "multiplier": { "type": "number" },
+        "gramsPerEnd": { "type": "number" }
+      },
+      "required": ["uid", "denier", "multiplier"]
+    },
+    "Loom": {
+      "title": "Loom",
+      "description": "A loom used for weaving.",
+      "type": "object",
+      "properties": {
+        "uid": { "type": "string" },
+        "loomNumber": { "type": "string" },
+        "designName": { "type": "string" },
+        "weaverId": { "type": "string" },
+        "status": { "type": "string", "enum": ["idle", "running", "maintenance"] },
+        "createdAt": { "type": "integer" }
+      },
+      "required": ["uid", "weaverId", "createdAt"]
+    },
+    "WarpOrder": {
+      "title": "Warp Order",
+      "description": "An order for preparing a warp.",
+      "type": "object",
+      "properties": {
+        "uid": { "type": "string" },
+        "warperId": { "type": "string" },
+        "date": { "type": "string" },
+        "orderNumber": { "type": "string" },
+        "designName": { "type": "string" },
+        "totalEnds": { "type": "number" },
+        "totalLength": { "type": "number" },
+        "status": { "type": "string", "enum": ["pending", "in-progress", "completed"] },
+        "weaverId": { "type": "string" },
+        "weaverName": { "type": "string" },
+        "loomId": { "type": "string" },
+        "loomNumber": { "type": "string" },
+        "totalYarnWeight": { "type": "number" },
+        "warpYarnType": { "type": "string" },
+        "weftYarnType": { "type": "string" },
+        "totalSareesExpected": { "type": "number" },
+        "warpLengthMeters": { "type": "number" },
+        "wage": { "type": "number" },
+        "wagePaid": { "type": "number" },
+        "createdAt": { "type": "integer" }
+      },
+      "required": ["uid", "warperId", "date", "totalEnds", "totalLength", "status", "createdAt"]
+    },
+    "Supplier": {
+      "title": "Supplier",
+      "description": "A supplier of yarn.",
+      "type": "object",
+      "properties": {
+        "uid": { "type": "string" },
+        "name": { "type": "string" },
+        "createdAt": { "type": "integer" }
+      },
+      "required": ["uid", "name", "createdAt"]
+    },
+    "LoomTransaction": {
+      "title": "Loom Transaction",
+      "description": "A record of a transaction on a loom.",
+      "type": "object",
+      "properties": {
+        "uid": { "type": "string" },
+        "loomId": { "type": "string" },
+        "date": { "type": "string" },
+        "type": { "type": "string", "enum": ["warp_loaded", "saree_produced", "maintenance", "other"] },
+        "description": { "type": "string" },
+        "warpOrderId": { "type": "string" },
+        "sareeCount": { "type": "number" },
+        "yarnGivenWeight": { "type": "number" },
+        "yarnType": { "type": "string" },
+        "createdAt": { "type": "integer" }
+      },
+      "required": ["uid", "loomId", "date", "type", "createdAt"]
+    },
+    "UserProfile": {
+      "title": "User Profile",
+      "description": "The profile of a user.",
+      "type": "object",
+      "properties": {
+        "uid": { "type": "string" },
+        "email": { "type": "string" },
+        "name": { "type": "string" },
+        "avatar": { "type": "string" },
+        "mobile": { "type": "string" },
+        "address": { "type": "string" },
+        "customAppName": { "type": "string" },
+        "themeColor": { "type": "string" },
+        "buttonColor": { "type": "string" },
+        "language": { "type": "string" }
+      },
+      "required": ["uid", "email", "name"]
+    }
+  },
+  "firestore": {
+    "/weavers": { "schema": "Weaver", "description": "Collection of weavers" },
+    "/warpers": { "schema": "Warper", "description": "Collection of warpers" },
+    "/yarn_dispatches": { "schema": "YarnDispatch", "description": "Collection of yarn dispatches" },
+    "/warper_returns": { "schema": "WarperReturn", "description": "Collection of warper returns" },
+    "/denier_formulas": { "schema": "DenierFormula", "description": "Collection of denier formulas" },
+    "/looms": { "schema": "Loom", "description": "Collection of looms" },
+    "/warp_orders": { "schema": "WarpOrder", "description": "Collection of warp orders" },
+    "/suppliers": { "schema": "Supplier", "description": "Collection of suppliers" },
+    "/loom_transactions": { "schema": "LoomTransaction", "description": "Collection of loom transactions" },
+    "/user_profiles": { "schema": "UserProfile", "description": "Collection of user profiles" }
+  }
+}
