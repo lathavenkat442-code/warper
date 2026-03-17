@@ -1,6 +1,5 @@
-import { db, collection, query, where, onSnapshot, deleteDoc, doc, setDoc } from '../firebase';
 import { ScanVerificationModal } from './ScanVerificationModal';
-import React, { useState, useEffect, useMemo, useRef, useCallback } from 'react';
+import React, { useState, useEffect, useMemo, useRef } from 'react';
 import { User, Warper, YarnDispatch, WarperReturn, WarpOrder, DenierFormula, Weaver, Supplier, WarpSection, Loom, LoomTransaction } from '../types';
 import { GoogleGenAI } from "@google/genai";
 import { Plus, User as UserIcon, Trash2, Settings, FileText, ChevronDown, ChevronUp, Search, Printer, Camera, ArrowDownLeft, ArrowUpRight, PieChart } from 'lucide-react';
@@ -28,7 +27,6 @@ const Warpers: React.FC<WarpersProps> = ({ user, language, buttonColor = 'bg-zin
   const [denierFormulas, setDenierFormulas] = useState<DenierFormula[]>([]);
   const [suppliers, setSuppliers] = useState<Supplier[]>([]);
   const [looms, setLooms] = useState<Loom[]>([]);
-  const [loomTransactions, setLoomTransactions] = useState<LoomTransaction[]>([]);
   
   const [selectedWarper, setSelectedWarper] = useState<Warper | null>(null);
   const [ledgerPage, setLedgerPage] = useState(1);
@@ -115,296 +113,70 @@ const Warpers: React.FC<WarpersProps> = ({ user, language, buttonColor = 'bg-zin
     return warpOrders.filter(o => o.warperId === selectedWarper.id).sort((a, b) => b.createdAt - a.createdAt);
   }, [warpOrders, selectedWarper]);
 
-  const saveToFirestore = useCallback(async (collectionName: string, item: any) => {
-    if (!user.uid) return;
-    const { id, ...data } = item;
-    if (id) {
-      await setDoc(doc(db, collectionName, id), { ...data, uid: user.uid }, { merge: true });
-    }
-  }, [user.uid]);
-
-  const deleteFromFirestore = useCallback(async (collectionName: string, id: string) => {
-    if (!user.uid) return;
-    await deleteDoc(doc(db, collectionName, id));
-  }, [user.uid]);
-
+  const isInitialLoad = useRef(true);
   useEffect(() => {
-    if (user.uid) {
-      // Migration logic: If local data exists and Firestore is empty, upload local data
-      const migrateData = async () => {
-        const collections = [
-          { name: 'warpers', localKey: 'warpers', state: warpers },
-          { name: 'yarn_dispatches', localKey: 'yarn_dispatches', state: dispatches },
-          { name: 'warper_returns', localKey: 'warper_returns', state: returns },
-          { name: 'warp_orders', localKey: 'warp_orders', state: warpOrders },
-          { name: 'weavers', localKey: 'weavers', state: weavers },
-          { name: 'looms', localKey: 'looms', state: looms },
-          { name: 'suppliers', localKey: 'suppliers', state: suppliers },
-          { name: 'denier_formulas', localKey: 'denier_formulas', state: denierFormulas },
-          { name: 'loom_transactions', localKey: 'loom_txns', state: loomTransactions }
-        ];
+    if (!isInitialLoad.current) return;
+    isInitialLoad.current = false;
 
-        for (const col of collections) {
-          const localData = localStorage.getItem(`viyabaari_${col.localKey}_guest`);
-          if (localData) {
-            const parsed = JSON.parse(localData);
-            if (parsed.length > 0) {
-              // Check if Firestore already has data for this user
-              // We'll rely on the onSnapshot to tell us if it's empty, 
-              // but for migration we can just try to upload if we haven't migrated yet
-              const migratedKey = `viyabaari_migrated_${col.name}_${user.uid}`;
-              if (!localStorage.getItem(migratedKey)) {
-                for (const item of parsed) {
-                  await saveToFirestore(col.name, item);
-                }
-                localStorage.setItem(migratedKey, 'true');
-              }
-            }
-          }
-        }
-      };
-      migrateData();
+    setTimeout(() => {
+      const savedWarpers = localStorage.getItem(`viyabaari_warpers_${user.uid || 'guest'}`);
+      if (savedWarpers) setWarpers(JSON.parse(savedWarpers));
 
-      // Real-time sync with Firestore for logged-in users
-      const collections = [
-        { name: 'warpers', setter: setWarpers },
-        { name: 'yarn_dispatches', setter: setDispatches },
-        { name: 'warper_returns', setter: setReturns },
-        { name: 'warp_orders', setter: setWarpOrders },
-        { name: 'weavers', setter: setWeavers },
-        { name: 'looms', setter: setLooms },
-        { name: 'suppliers', setter: setSuppliers },
-        { name: 'denier_formulas', setter: setDenierFormulas },
-        { name: 'loom_transactions', setter: setLoomTransactions }
-      ];
+      const savedDispatches = localStorage.getItem(`viyabaari_yarn_dispatches_${user.uid || 'guest'}`);
+      if (savedDispatches) setDispatches(JSON.parse(savedDispatches));
 
-      const unsubscribes = collections.map(col => {
-        const q = query(collection(db, col.name), where('uid', '==', user.uid));
-        return onSnapshot(q, (snapshot) => {
-          const data = snapshot.docs.map(doc => ({ ...doc.data(), id: doc.id } as any));
-          col.setter(data);
-          if (col.name === 'denier_formulas' && data.length > 0 && !selectedDenier) {
-            setSelectedDenier(data[0].denier);
-          }
-        });
-      });
+      const savedReturns = localStorage.getItem(`viyabaari_warper_returns_${user.uid || 'guest'}`);
+      if (savedReturns) setReturns(JSON.parse(savedReturns));
 
-      return () => unsubscribes.forEach(unsub => unsub());
-    } else {
-      // Local storage for guests
-      setTimeout(() => {
-        const savedWarpers = localStorage.getItem(`viyabaari_warpers_${user.uid || 'guest'}`);
-        if (savedWarpers) setWarpers(JSON.parse(savedWarpers));
+      const savedWarpOrders = localStorage.getItem(`viyabaari_warp_orders_${user.uid || 'guest'}`);
+      if (savedWarpOrders) setWarpOrders(JSON.parse(savedWarpOrders));
 
-        const savedDispatches = localStorage.getItem(`viyabaari_yarn_dispatches_${user.uid || 'guest'}`);
-        if (savedDispatches) setDispatches(JSON.parse(savedDispatches));
+      const savedWeavers = localStorage.getItem(`viyabaari_weavers_${user.uid || 'guest'}`);
+      if (savedWeavers) setWeavers(JSON.parse(savedWeavers));
 
-        const savedReturns = localStorage.getItem(`viyabaari_warper_returns_${user.uid || 'guest'}`);
-        if (savedReturns) setReturns(JSON.parse(savedReturns));
+      const savedLooms = localStorage.getItem(`viyabaari_looms_${user.uid || 'guest'}`);
+      if (savedLooms) setLooms(JSON.parse(savedLooms));
 
-        const savedWarpOrders = localStorage.getItem(`viyabaari_warp_orders_${user.uid || 'guest'}`);
-        if (savedWarpOrders) setWarpOrders(JSON.parse(savedWarpOrders));
+      const savedSuppliers = localStorage.getItem(`viyabaari_suppliers_${user.uid || 'guest'}`);
+      if (savedSuppliers) setSuppliers(JSON.parse(savedSuppliers));
 
-        const savedWeavers = localStorage.getItem(`viyabaari_weavers_${user.uid || 'guest'}`);
-        if (savedWeavers) setWeavers(JSON.parse(savedWeavers));
+      const savedFormulas = localStorage.getItem(`viyabaari_denier_formulas_${user.uid || 'guest'}`);
+      if (savedFormulas) {
+        const parsed = JSON.parse(savedFormulas);
+        setDenierFormulas(parsed);
+        if (parsed.length > 0) setSelectedDenier(parsed[0].denier);
+      }
+    }, 0);
+  }, [user.uid]);
 
-        const savedLooms = localStorage.getItem(`viyabaari_looms_${user.uid || 'guest'}`);
-        if (savedLooms) setLooms(JSON.parse(savedLooms));
-
-        const savedSuppliers = localStorage.getItem(`viyabaari_suppliers_${user.uid || 'guest'}`);
-        if (savedSuppliers) setSuppliers(JSON.parse(savedSuppliers));
-
-        const savedFormulas = localStorage.getItem(`viyabaari_denier_formulas_${user.uid || 'guest'}`);
-        if (savedFormulas) {
-          const parsed = JSON.parse(savedFormulas);
-          setDenierFormulas(parsed);
-          if (parsed.length > 0) setSelectedDenier(parsed[0].denier);
-        }
-
-        const savedTxns = localStorage.getItem(`viyabaari_loom_txns_${user.uid || 'guest'}`);
-        if (savedTxns) setLoomTransactions(JSON.parse(savedTxns));
-      }, 0);
-    }
-  }, [user.uid, saveToFirestore, deleteFromFirestore, warpers, dispatches, returns, warpOrders, weavers, looms, suppliers, denierFormulas, loomTransactions, selectedDenier]);
-
-  const saveWarpers = async (newWarpers: Warper[]) => {
-    const oldWarpers = [...warpers];
+  const saveWarpers = (newWarpers: Warper[]) => {
     setWarpers(newWarpers);
     localStorage.setItem(`viyabaari_warpers_${user.uid || 'guest'}`, JSON.stringify(newWarpers));
-    if (user.uid) {
-      if (newWarpers.length > oldWarpers.length) {
-        const added = newWarpers.filter(nw => !oldWarpers.find(w => w.id === nw.id));
-        for (const item of added) await saveToFirestore('warpers', item);
-      } else if (newWarpers.length < oldWarpers.length) {
-        const deleted = oldWarpers.filter(w => !newWarpers.find(nw => nw.id === w.id));
-        for (const item of deleted) await deleteFromFirestore('warpers', item.id);
-      } else {
-        for (const nw of newWarpers) {
-          const old = oldWarpers.find(w => w.id === nw.id);
-          if (old && JSON.stringify(old) !== JSON.stringify(nw)) await saveToFirestore('warpers', nw);
-        }
-      }
-    }
   };
 
-  const saveReturns = async (newReturns: WarperReturn[]) => {
-    const oldReturns = [...returns];
+  const saveReturns = (newReturns: WarperReturn[]) => {
     setReturns(newReturns);
     localStorage.setItem(`viyabaari_warper_returns_${user.uid || 'guest'}`, JSON.stringify(newReturns));
-    if (user.uid) {
-      if (newReturns.length > oldReturns.length) {
-        const added = newReturns.filter(nr => !oldReturns.find(r => r.id === nr.id));
-        for (const item of added) await saveToFirestore('warper_returns', item);
-      } else if (newReturns.length < oldReturns.length) {
-        const deleted = oldReturns.filter(r => !newReturns.find(nr => nr.id === r.id));
-        for (const item of deleted) await deleteFromFirestore('warper_returns', item.id);
-      } else {
-        for (const nr of newReturns) {
-          const old = oldReturns.find(r => r.id === nr.id);
-          if (old && JSON.stringify(old) !== JSON.stringify(nr)) await saveToFirestore('warper_returns', nr);
-        }
-      }
-    }
   };
 
-  const saveDispatches = async (newDispatches: YarnDispatch[]) => {
-    const oldDispatches = [...dispatches];
+  const saveDispatches = (newDispatches: YarnDispatch[]) => {
     setDispatches(newDispatches);
     localStorage.setItem(`viyabaari_yarn_dispatches_${user.uid || 'guest'}`, JSON.stringify(newDispatches));
-    if (user.uid) {
-      if (newDispatches.length > oldDispatches.length) {
-        const added = newDispatches.filter(nd => !oldDispatches.find(d => d.id === nd.id));
-        for (const item of added) await saveToFirestore('yarn_dispatches', item);
-      } else if (newDispatches.length < oldDispatches.length) {
-        const deleted = oldDispatches.filter(d => !newDispatches.find(nd => nd.id === d.id));
-        for (const item of deleted) await deleteFromFirestore('yarn_dispatches', item.id);
-      } else {
-        for (const nd of newDispatches) {
-          const old = oldDispatches.find(d => d.id === nd.id);
-          if (old && JSON.stringify(old) !== JSON.stringify(nd)) await saveToFirestore('yarn_dispatches', nd);
-        }
-      }
-    }
   };
 
-  const saveFormulas = async (newFormulas: DenierFormula[]) => {
-    const oldFormulas = [...denierFormulas];
+  const saveFormulas = (newFormulas: DenierFormula[]) => {
     setDenierFormulas(newFormulas);
     localStorage.setItem(`viyabaari_denier_formulas_${user.uid || 'guest'}`, JSON.stringify(newFormulas));
-    if (user.uid) {
-      if (newFormulas.length > oldFormulas.length) {
-        const added = newFormulas.filter(nf => !oldFormulas.find(f => f.id === nf.id));
-        for (const item of added) await saveToFirestore('denier_formulas', item);
-      } else if (newFormulas.length < oldFormulas.length) {
-        const deleted = oldFormulas.filter(f => !newFormulas.find(nf => nf.id === f.id));
-        for (const item of deleted) await deleteFromFirestore('denier_formulas', item.id);
-      } else {
-        for (const nf of newFormulas) {
-          const old = oldFormulas.find(f => f.id === nf.id);
-          if (old && JSON.stringify(old) !== JSON.stringify(nf)) await saveToFirestore('denier_formulas', nf);
-        }
-      }
-    }
   };
 
-  const saveWarpOrders = async (newOrders: WarpOrder[]) => {
-    const oldOrders = [...warpOrders];
+  const saveWarpOrders = (newOrders: WarpOrder[]) => {
     setWarpOrders(newOrders);
     localStorage.setItem(`viyabaari_warp_orders_${user.uid || 'guest'}`, JSON.stringify(newOrders));
-    if (user.uid) {
-      if (newOrders.length > oldOrders.length) {
-        const added = newOrders.filter(no => !oldOrders.find(o => o.id === no.id));
-        for (const item of added) await saveToFirestore('warp_orders', item);
-      } else if (newOrders.length < oldOrders.length) {
-        const deleted = oldOrders.filter(o => !newOrders.find(no => no.id === o.id));
-        for (const item of deleted) await deleteFromFirestore('warp_orders', item.id);
-      } else {
-        for (const no of newOrders) {
-          const old = oldOrders.find(o => o.id === no.id);
-          if (old && JSON.stringify(old) !== JSON.stringify(no)) await saveToFirestore('warp_orders', no);
-        }
-      }
-    }
   };
 
-  const saveLooms = async (newLooms: Loom[]) => {
-    const oldLooms = [...looms];
+  const saveLooms = (newLooms: Loom[]) => {
     setLooms(newLooms);
     localStorage.setItem(`viyabaari_looms_${user.uid || 'guest'}`, JSON.stringify(newLooms));
-    if (user.uid) {
-      if (newLooms.length > oldLooms.length) {
-        const added = newLooms.filter(nl => !oldLooms.find(l => l.id === nl.id));
-        for (const item of added) await saveToFirestore('looms', item);
-      } else if (newLooms.length < oldLooms.length) {
-        const deleted = oldLooms.filter(l => !newLooms.find(nl => nl.id === l.id));
-        for (const item of deleted) await deleteFromFirestore('looms', item.id);
-      } else {
-        for (const nl of newLooms) {
-          const old = oldLooms.find(l => l.id === nl.id);
-          if (old && JSON.stringify(old) !== JSON.stringify(nl)) await saveToFirestore('looms', nl);
-        }
-      }
-    }
-  };
-
-  const saveWeavers = async (newWeavers: Weaver[]) => {
-    const oldWeavers = [...weavers];
-    setWeavers(newWeavers);
-    localStorage.setItem(`viyabaari_weavers_${user.uid || 'guest'}`, JSON.stringify(newWeavers));
-    if (user.uid) {
-      if (newWeavers.length > oldWeavers.length) {
-        const added = newWeavers.filter(nw => !oldWeavers.find(w => w.id === nw.id));
-        for (const item of added) await saveToFirestore('weavers', item);
-      } else if (newWeavers.length < oldWeavers.length) {
-        const deleted = oldWeavers.filter(w => !newWeavers.find(nw => nw.id === w.id));
-        for (const item of deleted) await deleteFromFirestore('weavers', item.id);
-      } else {
-        for (const nw of newWeavers) {
-          const old = oldWeavers.find(w => w.id === nw.id);
-          if (old && JSON.stringify(old) !== JSON.stringify(nw)) await saveToFirestore('weavers', nw);
-        }
-      }
-    }
-  };
-
-  const saveSuppliers = async (newSuppliers: Supplier[]) => {
-    const oldSuppliers = [...suppliers];
-    setSuppliers(newSuppliers);
-    localStorage.setItem(`viyabaari_suppliers_${user.uid || 'guest'}`, JSON.stringify(newSuppliers));
-    if (user.uid) {
-      if (newSuppliers.length > oldSuppliers.length) {
-        const added = newSuppliers.filter(ns => !oldSuppliers.find(s => s.id === ns.id));
-        for (const item of added) await saveToFirestore('suppliers', item);
-      } else if (newSuppliers.length < oldSuppliers.length) {
-        const deleted = oldSuppliers.filter(s => !newSuppliers.find(ns => ns.id === s.id));
-        for (const item of deleted) await deleteFromFirestore('suppliers', item.id);
-      } else {
-        for (const ns of newSuppliers) {
-          const old = oldSuppliers.find(s => s.id === ns.id);
-          if (old && JSON.stringify(old) !== JSON.stringify(ns)) await saveToFirestore('suppliers', ns);
-        }
-      }
-    }
-  };
-
-  const saveLoomTxns = async (newTxns: LoomTransaction[]) => {
-    const oldTxns = [...loomTransactions];
-    setLoomTransactions(newTxns);
-    localStorage.setItem(`viyabaari_loom_txns_${user.uid || 'guest'}`, JSON.stringify(newTxns));
-    if (user.uid) {
-      if (newTxns.length > oldTxns.length) {
-        const added = newTxns.filter(nt => !oldTxns.find(t => t.id === nt.id));
-        for (const item of added) await saveToFirestore('loom_transactions', item);
-      } else if (newTxns.length < oldTxns.length) {
-        const deleted = oldTxns.filter(t => !newTxns.find(nt => nt.id === t.id));
-        for (const item of deleted) await deleteFromFirestore('loom_transactions', item.id);
-      } else {
-        for (const nt of newTxns) {
-          const old = oldTxns.find(t => t.id === nt.id);
-          if (old && JSON.stringify(old) !== JSON.stringify(nt)) await saveToFirestore('loom_transactions', nt);
-        }
-      }
-    }
   };
 
   const handleAdd = () => {
@@ -696,7 +468,8 @@ const Warpers: React.FC<WarpersProps> = ({ user, language, buttonColor = 'bg-zin
         createdAt: Date.now()
       };
       const updatedWeavers = [...weavers, newWeaver];
-      saveWeavers(updatedWeavers);
+      setWeavers(updatedWeavers);
+      localStorage.setItem(`viyabaari_weavers_${user.uid || 'guest'}`, JSON.stringify(updatedWeavers));
       finalWeaverId = newWeaver.id;
       finalWeaverName = newWeaver.name;
     } else {
@@ -720,7 +493,8 @@ const Warpers: React.FC<WarpersProps> = ({ user, language, buttonColor = 'bg-zin
         createdAt: Date.now() 
       };
       const updatedLooms = [...looms, newLoom];
-      saveLooms(updatedLooms);
+      setLooms(updatedLooms);
+      localStorage.setItem(`viyabaari_looms_${user.uid || 'guest'}`, JSON.stringify(updatedLooms));
       finalLoomId = newLoom.id;
       finalLoomNumber = newLoom.loomNumber || '-';
     } else {
@@ -775,7 +549,7 @@ const Warpers: React.FC<WarpersProps> = ({ user, language, buttonColor = 'bg-zin
           }
           return txn;
         });
-        saveLoomTxns(updatedTxns);
+        localStorage.setItem(`viyabaari_loom_txns_${user.uid || 'guest'}`, JSON.stringify(updatedTxns));
       }
     }
 
@@ -2494,7 +2268,8 @@ const Warpers: React.FC<WarpersProps> = ({ user, language, buttonColor = 'bg-zin
                     if (name) {
                       const newWeaver: Weaver = { id: Date.now().toString(), name, createdAt: Date.now() };
                       const updated = [...weavers, newWeaver];
-                      saveWeavers(updated);
+                      setWeavers(updated);
+                      localStorage.setItem(`viyabaari_weavers_${user.uid || 'guest'}`, JSON.stringify(updated));
                       setReturnWeaverId(newWeaver.id);
                     }
                   } else {
@@ -2677,7 +2452,8 @@ const Warpers: React.FC<WarpersProps> = ({ user, language, buttonColor = 'bg-zin
                     if (name) {
                       const newSupplier: Supplier = { id: Date.now().toString(), name, createdAt: Date.now() };
                       const updated = [...suppliers, newSupplier];
-                      saveSuppliers(updated);
+                      setSuppliers(updated);
+                      localStorage.setItem(`viyabaari_suppliers_${user.uid || 'guest'}`, JSON.stringify(updated));
                       setDispatchSupplierId(newSupplier.id);
                     }
                   } else {

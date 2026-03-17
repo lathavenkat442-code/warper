@@ -1,17 +1,18 @@
-import { defineConfig } from 'vite';
-import react from '@vitejs/plugin-react';
-import tailwindcss from '@tailwindcss/vite';
+import { defineConfig, loadEnv } from 'vite'
+import react from '@vitejs/plugin-react'
 
-export default defineConfig({
-  plugins: [react(), tailwindcss()],
-  build: {
-    target: 'es2015'
-  },
-  esbuild: {
-    target: 'es2015'
-  },
-  server: {
-    host: '0.0.0.0',
-    port: 3000,
-  },
-});
+// https://vitejs.dev/config/
+export default defineConfig(({ mode }) => {
+  const env = loadEnv(mode, process.cwd(), '')
+  return {
+    plugins: [react()],
+    define: {
+      'process.env.GEMINI_API_KEY': JSON.stringify(env.GEMINI_API_KEY)
+    },
+    build: {
+      target: 'es2015',
+      outDir: 'dist',
+      sourcemap: true
+    }
+  }
+})
